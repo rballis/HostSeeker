@@ -1,0 +1,24 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HostSeeker", "HostSeeker\HostSeeker.csproj", "{12662776-F5F3-44C5-9B38-3BABB1195E76}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "HostSeekerSetup", "HostSeekerSetup\HostSeekerSetup.vdproj", "{3A0439D2-1EE6-42F8-9BC8-1A8D4688BA15}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{12662776-F5F3-44C5-9B38-3BABB1195E76}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12662776-F5F3-44C5-9B38-3BABB1195E76}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12662776-F5F3-44C5-9B38-3BABB1195E76}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12662776-F5F3-44C5-9B38-3BABB1195E76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A0439D2-1EE6-42F8-9BC8-1A8D4688BA15}.Debug|Any CPU.ActiveCfg = Debug
+		{3A0439D2-1EE6-42F8-9BC8-1A8D4688BA15}.Release|Any CPU.ActiveCfg = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

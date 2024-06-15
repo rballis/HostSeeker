@@ -1,0 +1,297 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Text;
+using System.Windows.Forms;
+using System.Threading;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+
+namespace HostSeeker
+{
+    public partial class Form1 : Form
+    {
+        private List<object> m_lHostList;
+        private List<object> m_lThreadList;
+        private static int m_iMinIPSup = 1;
+        private static int m_iMaxIPSup = 254;
+
+        public Form1()
+        {
+            InitializeComponent();
+            progressBar1.Maximum = m_iMaxIPSup;
+            progressBar1.Step = m_iMinIPSup;
+            m_lHostList = new List<object>();
+            m_lThreadList = new List<object>();
+        }
+
+        // Einholen der Localen IP Adresse
+        private void GetLocalIP_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                IPHostEntry localhost = Dns.GetHostEntry(Dns.GetHostName());
+                String sIP = "";
+                int iPos1 = 0;
+                int iPos2 = 0;
+                int iPos3 = 0;
+
+                // Iteration durch den Adressbereich...
+                foreach (IPAddress curAdd in localhost.AddressList)
+                {
+                    //... nur IPv4 Adresse einholen...
+                    if (curAdd.AddressFamily.ToString() == ProtocolFamily.InterNetwork.ToString())
+                    {
+                        sIP = curAdd.ToString();
+                        // ... wenn erste gefunden, dan abbruch
+                        break;
+                    }
+                }
+
+                iPos1 = sIP.IndexOf(".");
+                Sub1.Text = sIP.Substring(0, iPos1);
+                Sub1.Update();
+
+                iPos2 = sIP.IndexOf(".", iPos1 + 1);
+                Sub2.Text = sIP.Substring(iPos1 + 1, iPos2 - iPos1 - 1);
+                Sub2.Update();
+
+                iPos3 = sIP.IndexOf(".", iPos2 + 1);
+                Sub3.Text = sIP.Substring(iPos2 + 1, iPos3 - iPos2 - 1);
+                Sub3.Update();
+            }
+            catch
+            {
+                MessageBox.Show("Failed to get local IP subnet", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Starten der Suche
+        private void StartSeek_Click(object sender, EventArgs e)
+        {
+            // Einlesen der Class C IP
+            String sIP = Sub1.Text + "." + Sub2.Text + "." + Sub3.Text + ".";
+            int iNodeCount = 0;
+            int iThreadRun = 0;
+            int iNewProgrValue;
+            bool bRunnFlag;
+
+            // Prüfen ob Adresse Plausibel und gültige Zeichen beinhaltet
+            if (CheckSubnetIP())
+            {
+                this.Cursor = Cursors.WaitCursor;
+
+                hostTree.Nodes.Clear();
+                hostTree.Refresh();
+
+                hostEntry.Items.Clear();
+                hostEntry.Refresh();
+
+                progressBar1.Visible = true;
+                progressBar1.Value = 0;
+                m_lHostList.Clear();
+                m_lThreadList.Clear();
+
+                // Iteration durch den IP Adressenbereich
+                for (int i = m_iMinIPSup; i <= m_iMaxIPSup; i++)
+                {
+                    // statusbar schreiben
+                    statusBarLabel1.Text = "Send Ping: " + sIP + i;
+                    statusBar.Refresh();
+
+                    // Ping Klasse instanz erzeugen
+                    CHostPing cHostPing = new CHostPing(sIP, i, m_lHostList);
+
+                    // Thread erzeugen
+                    Thread pingThread = new Thread(new ThreadStart(cHostPing.SendPing));
+
+                    // Thread starten
+                    pingThread.Start();
+
+                    // Thread an Liste Anhängen
+                    m_lThreadList.Add(pingThread);
+
+                    // Progressbar schreiben
+                    progressBar1.PerformStep();
+                }
+
+                // Progressbar neu aufbauen
+                progressBar1.Maximum = m_lThreadList.Count;
+                progressBar1.Value = 0;
+
+                // Statusbar neu schreiben
+                statusBarLabel1.Text = "Replies left to finish";
+                statusBar.Refresh();
+
+                // Prüfung ob alle Threads beendet wurden
+                while (true)
+                {
+                    bRunnFlag = false;
+                    iThreadRun = 0;
+
+                    // Iteration durch Treasliste...
+                    foreach (Thread pingThread in m_lThreadList)
+                    {
+                        // ... wen Thread noch läuft...
+                        if (pingThread.ThreadState == ThreadState.Running)
+                        {
+                            // .. flag setzen...
+                            bRunnFlag = true;
+                            iThreadRun++;
+                        }
+                    }
+
+                    // Progressbar schreiben
+                    if (iThreadRun == 0)
+                    {
+                        iNewProgrValue = progressBar1.Maximum;
+                    }
+                    else
+                    {
+                        iNewProgrValue = progressBar1.Maximum / iThreadRun;
+                    }
+
+                    if (iNewProgrValue > progressBar1.Maximum)
+                    {
+                        progressBar1.Value = progressBar1.Maximum;
+                    }
+                    else
+                    {
+                        progressBar1.Value = iNewProgrValue;
+                    }
+
+                    // ... wenn kein Thred mehr aktiv dann Prüfung beenden
+                    if (!bRunnFlag)
+                    {
+                        break;
+                    }
+                }
+
+                // Iteration durch Adressbereich...
+                for (int i = m_iMinIPSup; i <= m_iMaxIPSup; i++)
+                {
+                    // Iteration durch Adressliste
+                    foreach (CHost cHost in m_lHostList)
+                    {
+                        // ... wenn SubnetAdresse stimmt
+                        if (i == cHost.getSuf())
+                        {
+                            // IP Adresse in Hostliste eintragen...
+                            hostTree.Nodes.Add(cHost.getAdress());
+
+                            // ... prüfen ob auch ein DNS Eintrag existiert...
+                            if (cHost.getHostName().Length > 0)
+                            {
+                                // ... als neuen Knoten eintragen
+                                hostTree.Nodes[iNodeCount].Nodes.Add(cHost.getHostName());
+                            }
+                            iNodeCount++;
+                        }
+                    }
+                }
+
+                progressBar1.Visible = false;
+                statusBarLabel1.Text = "Finished";
+                statusBar.Refresh();
+
+                this.Cursor = Cursors.Default;
+            }
+            else
+            {
+                MessageBox.Show("Check subnet IP entry", "ERROR", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        // Adresse prüfen ob plausibel ist
+        private bool CheckSubnetIP()
+        {
+            try
+            {
+                int iSub1 = Convert.ToInt32(Sub1.Text);
+                int iSub2 = Convert.ToInt32(Sub2.Text);
+                int iSub3 = Convert.ToInt32(Sub3.Text);
+
+                if (iSub1 < 0 || iSub1 > 255)
+                {
+                    return false;
+                }
+                if (iSub2 < 0 || iSub2 > 255)
+                {
+                    return false;
+                }
+                if (iSub3 < 0 || iSub3 > 255)
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        // Wenn ein Host selektiert wurde
+        private void hostTree_AfterSelect(object sender, TreeViewEventArgs e)
+        {
+            String sForCompare;
+            int iIDXCompare;
+            hostEntry.Items.Clear();
+            e.Node.FullPath.ToString();
+
+            // Iteration durch Hostliste...
+            foreach (CHost cHost in m_lHostList)
+            {
+                iIDXCompare = e.Node.FullPath.ToString().IndexOf("\\");
+
+                // prüfen ob Selektion Host oder ein DNS Eintrag ist
+                if (iIDXCompare > 0)
+                {
+                    // dann den richtigen für den Vergleich extrahieren
+                    sForCompare = e.Node.FullPath.ToString().Substring(0, iIDXCompare);
+                }
+                else
+                {
+                    sForCompare = e.Node.FullPath.ToString();
+                }
+
+                // ... wenn Host gefunden in Liste schreiben
+                if (sForCompare.CompareTo(cHost.getAdress()) == 0)
+                {
+                    hostEntry.Items.Add("IP Address:\t\t\t" + cHost.getAdress());
+                    hostEntry.Items.Add("DNS Name:\t\t\t" + cHost.getHostName());
+                    hostEntry.Items.Add("");
+                    hostEntry.Items.Add("Ping result:");
+                    hostEntry.Items.Add("Roundtrip time:\t\t\t" + cHost.getRoundtripTime());
+                    hostEntry.Items.Add("Time to live:\t\t\t" + cHost.getTtl());
+                    hostEntry.Items.Add("Don't fragment:\t\t\t" + cHost.getDontFragment());
+                    hostEntry.Items.Add("Buffer size:\t\t\t" + cHost.getLength());
+
+                    return;
+                }
+            }
+        }
+
+        // DNS ausblenden
+        private void collapse_Click(object sender, EventArgs e)
+        {
+            hostTree.CollapseAll();
+        }
+
+        // DNS einblenden
+        private void expand_Click(object sender, EventArgs e)
+        {
+            hostTree.ExpandAll();
+        }
+
+        // AboutBox anzeigen
+        private void ShowAbout_Click(object sender, EventArgs e)
+        {
+            new About().ShowDialog();
+        }
+    }
+}
