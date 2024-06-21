@@ -11,9 +11,9 @@ namespace HostSeeker
     {
         private String m_sIp = string.Empty;
         private int m_iSuf;
-        private List<object> m_lHostList;
+        private List<CHost> m_lHostList;
 
-        public CHostPing(String sIp, int iSuf, List<object> lHostList)
+        public CHostPing(String sIp, int iSuf, List<CHost> lHostList)
         {
             m_sIp = sIp;
             m_iSuf = iSuf;
